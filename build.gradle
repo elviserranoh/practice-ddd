@@ -1,24 +1,142 @@
-apply plugin: 'java'
+plugins {
+    id 'org.springframework.boot' version '3.2.1'
+    id 'io.spring.dependency-management' version '1.1.6'
+}
 
-sourceCompatibility = 21
-targetCompatibility = 21
+allprojects {
+    apply plugin: 'java'
+    apply plugin: 'org.springframework.boot'
+    apply plugin: 'io.spring.dependency-management'
 
-repositories {
-    mavenCentral()
+    java {
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
+    }
+
+    repositories {
+        mavenCentral()
+        maven { url 'https://repo.spring.io/milestone' }
+    }
+
+    ext {
+        set('springCloudVersion', "2023.0.1")
+        set('elasticsearchVersion', '6.8.4')
+    }
+
+
+    dependencies {
+        implementation 'org.apache.logging.log4j:log4j-core:2.17.1'
+        implementation 'com.vlkan.log4j2:log4j2-logstash-layout:1.0.5'
+
+        testImplementation 'org.junit.jupiter:junit-jupiter-api:5.9.3'
+        testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.9.3'
+        testImplementation 'org.junit.platform:junit-platform-launcher:1.9.3'
+        testImplementation 'net.datafaker:datafaker:2.4.2'
+
+    }
+
+    dependencyManagement {
+        imports {
+            mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
+        }
+    }
+
+    test {
+        useJUnitPlatform()
+
+        testLogging {
+            events "passed", "skipped", "failed"
+        }
+    }
+
+    tasks.register('view_paths') {
+        doLast { task ->
+            println "$task.project.name"
+            println "------------------"
+            println "Main: $sourceSets.main.java.srcDirTrees"
+            println "   Resources: $sourceSets.main.resources.srcDirTrees"
+            println "Tests: $sourceSets.test.java.srcDirTrees"
+            println "   Resources $sourceSets.test.resources.srcDirTrees"
+        }
+    }
+}
+
+
+subprojects {
+    group = "tv.codely.${rootProject.name}"
+
+    sourceSets {
+        main {
+            java { srcDirs = ['main'] }
+            resources { srcDirs = ['main/resources'] }
+        }
+
+        test {
+            java { srcDirs = ['test'] }
+            resources { srcDirs = ['test/resources'] }
+        }
+    }
+
+    dependencies {
+        implementation('org.springframework.boot:spring-boot-starter-web')
+        implementation 'org.hibernate.orm:hibernate-core:6.6.3.Final'
+        implementation 'org.springframework:spring-orm:6.2.1' // Para simpleficar el tema transaccional
+        implementation 'org.apache.tomcat:tomcat-dbcp:11.0.2' // POOL DE CONEXIONES PARA PRODUCCION
+        implementation 'com.sun.xml.bind:jaxb-impl:4.0.5' // para leer bien los xml del tema del mapping
+        implementation 'jakarta.xml.bind:jakarta.xml.bind-api:4.0.2' // para apoyar a la de arriba.
+
+        implementation 'org.postgresql:postgresql:42.7.4'
+
+        testImplementation rootProject.sourceSets.main.output
+        testImplementation('org.springframework.boot:spring-boot-starter-test') {
+            exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
+        }
+
+        if (project.name != "shared") {
+            implementation project(":shared")
+            testImplementation project(":shared").sourceSets.test.output
+        }
+
+    }
+
+    bootJar {
+        enabled = false
+    }
+
+    jar {
+        enabled = true
+    }
+
+}
+
+sourceSets {
+    main {
+        java { srcDirs = ['apps/main'] }
+        resources { srcDirs = ['apps/main/resources'] }
+    }
+
+    test {
+        java { srcDirs = ['apps/test'] }
+        resources { srcDirs = ['apps/test/resources'] }
+    }
+}
+
+apply plugin: 'application'
+
+bootJar {
+    archiveBaseName.set('java-ddd-example')
+    archiveVersion.set('0.0.1')
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
 dependencies {
-    implementation 'org.apache.logging.log4j:log4j-core:2.17.0'
-    implementation 'com.vlkan.log4j2:log4j2-logstash-layout:1.0.5'
+    implementation('org.springframework.boot:spring-boot-starter-web')
 
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.2'
-    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.2'
-}
+    implementation project(':shared')
+    implementation project(':backoffice')
+    implementation project(':mooc')
 
-test {
-    useJUnitPlatform()
-
-    testLogging {
-        events "passed", "skipped", "failed"
+    testImplementation('org.springframework.boot:spring-boot-starter-test') {
+        exclude group: 'org.junit.vintage', module: 'junit-vintage-engine'
     }
 }
